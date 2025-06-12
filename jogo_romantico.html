@@ -19,6 +19,7 @@
             align-items: center;
             min-height: 100vh;
             overflow: hidden;
+            position: relative;
         }
 
         .game-container {
@@ -171,6 +172,63 @@
             from { opacity: 0; transform: translateY(20px); }
             to { opacity: 1; transform: translateY(0); }
         }
+
+        /* Estilos para os controles na tela */
+        #mobile-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 0;
+            right: 0;
+            width: 100%;
+            z-index: 9999;
+            display: flex;
+            justify-content: space-between;
+            padding: 0 20px;
+            pointer-events: none;
+        }
+
+        #mobile-controls .direction-controls {
+            display: flex;
+            gap: 10px;
+            pointer-events: auto;
+        }
+
+        #mobile-controls .jump-control {
+            pointer-events: auto;
+        }
+
+        .control-btn {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.8);
+            border: 3px solid #ff69b4;
+            font-size: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            user-select: none;
+            transition: transform 0.1s, background-color 0.2s;
+            -webkit-tap-highlight-color: transparent;
+            touch-action: manipulation;
+        }
+
+        .control-btn:active {
+            transform: scale(0.95);
+            background: rgba(255, 105, 180, 0.3);
+        }
+
+        .control-btn.jump {
+            background: rgba(255, 182, 193, 0.8);
+            font-size: 28px;
+        }
+
+        @media (min-width: 768px) {
+            #mobile-controls {
+                display: none;
+            }
+        }
     </style>
 </head>
 <body>
@@ -198,10 +256,31 @@
         </div>
     </div>
 
+    <div id="mobile-controls">
+        <div class="jump-control">
+            <div class="control-btn jump" id="jumpBtn">⬆️</div>
+        </div>
+        <div class="direction-controls">
+            <div class="control-btn" id="leftBtn">⬅️</div>
+            <div class="control-btn" id="rightBtn">➡️</div>
+        </div>
+    </div>
+
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
         
+        // Configuração dos controles móveis
+        const leftBtn = document.getElementById('leftBtn');
+        const rightBtn = document.getElementById('rightBtn');
+        const jumpBtn = document.getElementById('jumpBtn');
+
+        // Estado dos controles na tela
+        const touchControls = {
+            left: false,
+            right: false
+        };
+
         // Estado do jogo
         const game = {
             score: 0,
@@ -402,7 +481,64 @@
             }
         }
 
-        // Controles
+        // Funções auxiliares para os controles
+        function handleTouchStart(direction) {
+            touchControls[direction] = true;
+            game.keys[direction === 'left' ? 'ArrowLeft' : 'ArrowRight'] = true;
+        }
+
+        function handleTouchEnd(direction) {
+            touchControls[direction] = false;
+            game.keys[direction === 'left' ? 'ArrowLeft' : 'ArrowRight'] = false;
+        }
+
+        // Eventos para mouse
+        leftBtn.addEventListener('mousedown', () => handleTouchStart('left'));
+        leftBtn.addEventListener('mouseup', () => handleTouchEnd('left'));
+        leftBtn.addEventListener('mouseleave', () => handleTouchEnd('left'));
+
+        rightBtn.addEventListener('mousedown', () => handleTouchStart('right'));
+        rightBtn.addEventListener('mouseup', () => handleTouchEnd('right'));
+        rightBtn.addEventListener('mouseleave', () => handleTouchEnd('right'));
+
+        jumpBtn.addEventListener('mousedown', () => {
+            game.keys['Space'] = true;
+            handleJump();
+        });
+        jumpBtn.addEventListener('mouseup', () => {
+            game.keys['Space'] = false;
+        });
+
+        // Eventos para touch
+        leftBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTouchStart('left');
+        });
+        leftBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleTouchEnd('left');
+        });
+
+        rightBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            handleTouchStart('right');
+        });
+        rightBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            handleTouchEnd('right');
+        });
+
+        jumpBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            game.keys['Space'] = true;
+            handleJump();
+        });
+        jumpBtn.addEventListener('touchend', (e) => {
+            e.preventDefault();
+            game.keys['Space'] = false;
+        });
+
+        // Controles do teclado
         document.addEventListener('keydown', (e) => {
             game.keys[e.code] = true;
             
@@ -1264,22 +1400,30 @@
             }
         }
 
-        // Função de atualização do jogador
+        // Função para lidar com o pulo
+        function handleJump() {
+            if (player.onGround) {
+                player.velocityY = -player.jumpPower;
+                player.onGround = false;
+            }
+        }
+
+        // Atualizar a função updatePlayer para considerar os controles na tela
         function updatePlayer() {
             if (game.phaseComplete) return;
             
-            // Controles horizontais
-            if (game.keys['ArrowLeft']) {
+            // Controles horizontais (teclado ou touch)
+            if (game.keys['ArrowLeft'] || touchControls.left) {
                 player.velocityX = -player.speed;
                 player.direction = -1;
-            } else if (game.keys['ArrowRight']) {
+            } else if (game.keys['ArrowRight'] || touchControls.right) {
                 player.velocityX = player.speed;
                 player.direction = 1;
             } else {
                 player.velocityX *= game.friction;
             }
             
-            // Pulo
+            // Pulo (já está implementado através do handleJump)
             if (game.keys['Space'] && player.onGround) {
                 player.velocityY = -player.jumpPower;
                 player.onGround = false;
@@ -1295,47 +1439,6 @@
             // Limite da tela horizontal
             if (player.x < 0) player.x = 0;
             if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
-        }
-
-        // Função de colisão com plataformas
-        function checkPlatformCollisions() {
-            player.onGround = false;
-            
-            platforms.forEach(platform => {
-                if (player.x < platform.x + platform.width &&
-                    player.x + player.width > platform.x &&
-                    player.y < platform.y + platform.height &&
-                    player.y + player.height > platform.y) {
-                    
-                    if (player.velocityY > 0 && player.y < platform.y) {
-                        player.y = platform.y - player.height;
-                        player.velocityY = 0;
-                        player.onGround = true;
-                    }
-                }
-            });
-        }
-
-        // Função de colisão com rosas
-        function checkRoseCollisions() {
-            roses.forEach(rose => {
-                if (!rose.collected &&
-                    player.x < rose.x + rose.width &&
-                    player.x + player.width > rose.x &&
-                    player.y < rose.y + rose.height &&
-                    player.y + player.height > rose.y) {
-                    
-                    rose.collected = true;
-                    game.score++;
-                    document.getElementById('scoreValue').textContent = game.score;
-                    
-                    // Verificar se todas as rosas foram coletadas
-                    const allRosesCollected = roses.every(r => r.collected);
-                    if (allRosesCollected) {
-                        completePhase();
-                    }
-                }
-            });
         }
 
         // Função para completar fase
@@ -1511,6 +1614,47 @@
                     finalSequence.showPoem = true;
                 }
             }
+        }
+
+        // Função de colisão com plataformas
+        function checkPlatformCollisions() {
+            player.onGround = false;
+            
+            platforms.forEach(platform => {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y < platform.y + platform.height &&
+                    player.y + player.height > platform.y) {
+                    
+                    if (player.velocityY > 0 && player.y < platform.y) {
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.onGround = true;
+                    }
+                }
+            });
+        }
+
+        // Função de colisão com rosas
+        function checkRoseCollisions() {
+            roses.forEach(rose => {
+                if (!rose.collected &&
+                    player.x < rose.x + rose.width &&
+                    player.x + player.width > rose.x &&
+                    player.y < rose.y + rose.height &&
+                    player.y + player.height > rose.y) {
+                    
+                    rose.collected = true;
+                    game.score++;
+                    document.getElementById('scoreValue').textContent = game.score;
+                    
+                    // Verificar se todas as rosas foram coletadas
+                    const allRosesCollected = roses.every(r => r.collected);
+                    if (allRosesCollected) {
+                        completePhase();
+                    }
+                }
+            });
         }
 
         // Loop principal do jogo
