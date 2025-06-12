@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐕 Aventuras Românticas do Snoopy 💛</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="clouds">
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="controls">
+            🎮 Use ← → para mover<br>
+            🚀 ESPAÇO para pular<br>
+            🌹 Colete as rosas brancas
+        </div>
+        <div class="game-info">
+            <div>🌹 Rosas: <span id="scoreValue">0</span></div>
+            <div>🎯 Fase: <span id="phaseValue">1</span></div>
+        </div>
+        
+        <div class="phase-transition" id="phaseTransition">
+            <h2 id="transitionTitle">Fase Completa!</h2>
+            <p id="transitionText">Você coletou todas as rosas!</p>
+            <button class="continue-btn" id="continueBtn">Próxima Fase</button>
+        </div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html> 
