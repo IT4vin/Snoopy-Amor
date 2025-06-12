@@ -1,0 +1,1444 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🐕 Aventuras Românticas do Snoopy 💛</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 70%, #90EE90 100%);
+            font-family: 'Arial', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+
+        .game-container {
+            position: relative;
+            border: 4px solid #8B4513;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+        }
+
+        canvas {
+            display: block;
+            background: linear-gradient(180deg, #87CEEB 0%, #98FB98 70%, #90EE90 100%);
+        }
+
+        .controls {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 14px;
+        }
+
+        .game-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            color: white;
+            background: rgba(0, 0, 0, 0.7);
+            padding: 10px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            text-align: right;
+        }
+
+        .phase-transition {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.9);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            color: white;
+            font-size: 24px;
+            text-align: center;
+            z-index: 100;
+        }
+
+        .phase-transition.active {
+            display: flex;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        .phase-transition h2 {
+            font-size: 3em;
+            margin-bottom: 20px;
+            color: #FFD700;
+            text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+        }
+
+        .phase-transition p {
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            line-height: 1.6;
+            max-width: 600px;
+        }
+
+        .continue-btn {
+            background: linear-gradient(45deg, #ff6b9d, #e91e63);
+            color: white;
+            border: none;
+            border-radius: 25px;
+            padding: 15px 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .continue-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(233, 30, 99, 0.4);
+        }
+
+        .clouds {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: -1;
+        }
+
+        .cloud {
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+            opacity: 0.8;
+            animation: float-cloud 20s linear infinite;
+        }
+
+        .cloud:before {
+            content: '';
+            position: absolute;
+            background: white;
+            border-radius: 50px;
+        }
+
+        .cloud1 {
+            width: 80px;
+            height: 30px;
+            top: 20%;
+            animation-duration: 25s;
+        }
+
+        .cloud1:before {
+            width: 40px;
+            height: 40px;
+            top: -20px;
+            left: 10px;
+        }
+
+        .cloud2 {
+            width: 60px;
+            height: 25px;
+            top: 40%;
+            animation-duration: 30s;
+            animation-delay: -10s;
+        }
+
+        .cloud2:before {
+            width: 35px;
+            height: 35px;
+            top: -15px;
+            right: 10px;
+        }
+
+        @keyframes float-cloud {
+            0% { transform: translateX(-100px); }
+            100% { transform: translateX(calc(100vw + 100px)); }
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+    </style>
+</head>
+<body>
+    <div class="clouds">
+        <div class="cloud cloud1"></div>
+        <div class="cloud cloud2"></div>
+    </div>
+    
+    <div class="game-container">
+        <canvas id="gameCanvas" width="800" height="600"></canvas>
+        <div class="controls">
+            🎮 Use ← → para mover<br>
+            🚀 ESPAÇO para pular<br>
+            🌹 Colete as rosas brancas
+        </div>
+        <div class="game-info">
+            <div>🌹 Rosas: <span id="scoreValue">0</span></div>
+            <div>🎯 Fase: <span id="phaseValue">1</span></div>
+        </div>
+        
+        <div class="phase-transition" id="phaseTransition">
+            <h2 id="transitionTitle">Fase Completa!</h2>
+            <p id="transitionText">Você coletou todas as rosas!</p>
+            <button class="continue-btn" id="continueBtn">Próxima Fase</button>
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Estado do jogo
+        const game = {
+            score: 0,
+            keys: {},
+            gravity: 0.8,
+            friction: 0.85,
+            currentPhase: 1,
+            maxPhases: 3,
+            phaseComplete: false,
+            enemiesDefeated: 0
+        };
+
+        // Jogador (Snoopy)
+        const player = {
+            x: 100,
+            y: 400,
+            width: 40,
+            height: 50,
+            velocityX: 0,
+            velocityY: 0,
+            speed: 5,
+            jumpPower: 15,
+            onGround: false,
+            direction: 1
+        };
+
+        // Woodstock (passarinho amarelo)
+        const woodstock = {
+            x: 700,
+            y: 100,
+            width: 30,
+            height: 35,
+            visible: false,
+            bounce: 0,
+            flying: false,
+            flyDirection: -1,
+            flySpeed: 3
+        };
+
+        // Carta de amor
+        const loveLetter = {
+            x: 0,
+            y: 0,
+            width: 35,
+            height: 25,
+            visible: false,
+            falling: false,
+            fallSpeed: 2,
+            rotation: 0,
+            opening: false,
+            opened: false,
+            openProgress: 0
+        };
+
+        // Estado da sequência final
+        const finalSequence = {
+            active: false,
+            showPoem: false,
+            poemLines: [
+                "🌟 Para Mayara Mendes 🌟",
+                "",
+                "Minha ruiva, doce chama,",
+                "Teu amor é quem me chama.",
+                "Nos caminhos da aventura,",
+                "Tua lealdade é minha cura.",
+                "",
+                "Se o mundo ruir lá fora,",
+                "Te abraço e passa a hora.",
+                "Com coragem e ternura,",
+                "Vivemos nossa doçura.",
+                "",
+                "És meu porto, minha estrada,",
+                "Minha escolha mais amada.",
+                "E em cada novo amanhecer,",
+                "É por ti que quero viver.",
+                "",
+                "Com amor e carinho,",
+                "💛 Gustavo Gostosão 💛"
+            ]
+        };
+
+        // Configurações das fases
+        const phaseConfigs = {
+            1: {
+                platforms: [
+                    { x: 0, y: 550, width: 800, height: 50, color: '#8B4513' },
+                    { x: 200, y: 450, width: 120, height: 20, color: '#8B4513' },
+                    { x: 500, y: 380, width: 100, height: 20, color: '#8B4513' },
+                    { x: 150, y: 350, width: 80, height: 15, color: '#CD853F' },
+                ],
+                roses: [
+                    { x: 230, y: 420, width: 20, height: 15, collected: false },
+                    { x: 530, y: 350, width: 20, height: 15, collected: false },
+                    { x: 170, y: 320, width: 20, height: 15, collected: false },
+                ],
+                enemies: [
+                    { x: 250, y: 430, width: 25, height: 25, velocityX: 1, direction: 1 },
+                ]
+            },
+            2: {
+                platforms: [
+                    { x: 0, y: 550, width: 800, height: 50, color: '#8B4513' },
+                    { x: 150, y: 450, width: 100, height: 20, color: '#8B4513' },
+                    { x: 350, y: 380, width: 120, height: 20, color: '#8B4513' },
+                    { x: 600, y: 320, width: 100, height: 20, color: '#8B4513' },
+                    { x: 200, y: 280, width: 80, height: 15, color: '#CD853F' },
+                    { x: 450, y: 220, width: 100, height: 20, color: '#8B4513' },
+                ],
+                roses: [
+                    { x: 180, y: 420, width: 20, height: 15, collected: false },
+                    { x: 380, y: 350, width: 20, height: 15, collected: false },
+                    { x: 630, y: 290, width: 20, height: 15, collected: false },
+                    { x: 220, y: 250, width: 20, height: 15, collected: false },
+                    { x: 480, y: 190, width: 20, height: 15, collected: false },
+                ],
+                enemies: [
+                    { x: 180, y: 430, width: 25, height: 25, velocityX: 1.2, direction: 1 },
+                    { x: 400, y: 360, width: 25, height: 25, velocityX: 1.5, direction: 1 },
+                ]
+            },
+            3: {
+                platforms: [
+                    { x: 0, y: 550, width: 800, height: 50, color: '#8B4513' },
+                    { x: 100, y: 450, width: 80, height: 20, color: '#8B4513' },
+                    { x: 250, y: 380, width: 100, height: 20, color: '#8B4513' },
+                    { x: 450, y: 320, width: 80, height: 20, color: '#8B4513' },
+                    { x: 600, y: 250, width: 120, height: 20, color: '#8B4513' },
+                    { x: 350, y: 180, width: 100, height: 20, color: '#8B4513' },
+                ],
+                roses: [
+                    { x: 120, y: 420, width: 20, height: 15, collected: false },
+                    { x: 280, y: 350, width: 20, height: 15, collected: false },
+                    { x: 470, y: 290, width: 20, height: 15, collected: false },
+                    { x: 630, y: 220, width: 20, height: 15, collected: false },
+                    { x: 380, y: 150, width: 20, height: 15, collected: false },
+                    { x: 680, y: 150, width: 20, height: 15, collected: false },
+                ],
+                enemies: [
+                    { x: 130, y: 430, width: 25, height: 25, velocityX: 1.8, direction: 1 },
+                    { x: 300, y: 360, width: 25, height: 25, velocityX: 1.3, direction: 1 },
+                    { x: 500, y: 300, width: 25, height: 25, velocityX: 1.6, direction: 1 },
+                ]
+            }
+        };
+
+        let platforms = [];
+        let roses = [];
+        let enemies = [];
+
+        // Inicializar fase
+        function initPhase(phaseNumber) {
+            const config = phaseConfigs[phaseNumber];
+            platforms = [...config.platforms];
+            roses = config.roses.map(rose => ({...rose, collected: false}));
+            enemies = config.enemies.map(enemy => ({
+                ...enemy, 
+                dead: false, 
+                deathTimer: 0, 
+                remove: false
+            }));
+            
+            // Reset player position
+            player.x = 100;
+            player.y = 400;
+            player.velocityX = 0;
+            player.velocityY = 0;
+            
+            game.phaseComplete = false;
+            
+            // Mostrar Woodstock apenas na fase final
+            woodstock.visible = (phaseNumber === game.maxPhases);
+            
+            document.getElementById('phaseValue').textContent = phaseNumber;
+            
+            // Remover contador de inimigos derrotados da tela anterior
+            const defeatedCounter = document.getElementById('enemiesDefeated');
+            if (defeatedCounter) {
+                defeatedCounter.remove();
+            }
+        }
+
+        // Controles
+        document.addEventListener('keydown', (e) => {
+            game.keys[e.code] = true;
+            
+            // Detectar ENTER na tela final
+            if (e.code === 'Enter' && game.phaseComplete && game.currentPhase === game.maxPhases && !finalSequence.active) {
+                startFinalSequence();
+            }
+            
+            // Detectar ESC para sair do poema
+            if (e.code === 'Escape' && finalSequence.showPoem) {
+                finalSequence.active = false;
+                finalSequence.showPoem = false;
+                loveLetter.visible = false;
+                loveLetter.opened = false;
+                loveLetter.opening = false;
+                loveLetter.falling = false;
+                woodstock.flying = false;
+                showTransition("💕 Parabéns! 💕", "Snoopy encontrou o Woodstock!<br>O amor verdadeiro triunfou!<br><br>🐕💛🐥<br><br>Fim da aventura romântica!", true);
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            game.keys[e.code] = false;
+        });
+
+        // Função para desenhar o Snoopy
+        function drawPlayer() {
+            ctx.save();
+            ctx.translate(player.x + player.width/2, player.y + player.height/2);
+            if (player.direction === -1) {
+                ctx.scale(-1, 1);
+            }
+            
+            // Corpo do Snoopy
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.fillRect(-player.width/2, -player.height/2, player.width, player.height);
+            ctx.strokeRect(-player.width/2, -player.height/2, player.width, player.height);
+            
+            // Orelha
+            ctx.fillStyle = 'black';
+            ctx.fillRect(player.width/4, -player.height/2, 8, -15);
+            
+            // Olho
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(-5, -10, 3, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Focinho
+            ctx.fillStyle = 'black';
+            ctx.fillRect(-player.width/2, 0, 15, 8);
+            
+            // Patas
+            ctx.fillStyle = 'white';
+            ctx.strokeStyle = 'black';
+            ctx.fillRect(-15, player.height/2 - 5, 8, 10);
+            ctx.strokeRect(-15, player.height/2 - 5, 8, 10);
+            ctx.fillRect(5, player.height/2 - 5, 8, 10);
+            ctx.strokeRect(5, player.height/2 - 5, 8, 10);
+            
+            // Rabo
+            ctx.fillStyle = 'white';
+            ctx.beginPath();
+            ctx.arc(player.width/2 + 5, 0, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            ctx.restore();
+        }
+
+        // Função para desenhar Woodstock
+        function drawWoodstock() {
+            if (!woodstock.visible && !woodstock.flying) return;
+            
+            ctx.save();
+            ctx.translate(woodstock.x + woodstock.width/2, woodstock.y + woodstock.height/2 + Math.sin(woodstock.bounce) * 3);
+            
+            // Corpo do Woodstock
+            ctx.fillStyle = '#FFD700';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            
+            // Corpo (formato de pássaro)
+            ctx.beginPath();
+            ctx.ellipse(0, 0, woodstock.width/2, woodstock.height/2, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Cabeça
+            ctx.beginPath();
+            ctx.ellipse(0, -woodstock.height/3, woodstock.width/3, woodstock.height/3, 0, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Bico
+            ctx.fillStyle = '#FFA500';
+            ctx.beginPath();
+            ctx.moveTo(-5, -woodstock.height/3);
+            ctx.lineTo(-12, -woodstock.height/3 + 3);
+            ctx.lineTo(-5, -woodstock.height/3 + 6);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Olhos
+            ctx.fillStyle = 'black';
+            ctx.beginPath();
+            ctx.arc(-3, -woodstock.height/3 - 2, 2, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Asas (animação de voo se estiver voando)
+            ctx.fillStyle = '#FFD700';
+            ctx.strokeStyle = 'black';
+            
+            if (woodstock.flying) {
+                // Asas em movimento
+                const wingFlap = Math.sin(woodstock.bounce * 2) * 0.3;
+                ctx.beginPath();
+                ctx.ellipse(-8, 3, 8, 12, Math.PI/4 + wingFlap, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.ellipse(8, 3, 8, 12, -Math.PI/4 - wingFlap, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                // Asas normais
+                ctx.beginPath();
+                ctx.ellipse(-8, 3, 8, 12, Math.PI/4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                ctx.beginPath();
+                ctx.ellipse(8, 3, 8, 12, -Math.PI/4, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+            }
+            
+            // Penas da cabeça
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            for (let i = 0; i < 3; i++) {
+                ctx.beginPath();
+                ctx.moveTo(-5 + i * 3, -woodstock.height/2 - 5);
+                ctx.lineTo(-3 + i * 3, -woodstock.height/2 - 12);
+                ctx.stroke();
+            }
+            
+            ctx.restore();
+            
+            // Desenhar carta apenas se não estiver na sequência final
+            if (woodstock.visible && !finalSequence.active) {
+                drawLoveLetterStatic();
+            }
+        }
+
+        // Função para desenhar carta estática (versão original)
+        function drawLoveLetterStatic() {
+            const letterX = woodstock.x - 40;
+            const letterY = woodstock.y + 40;
+            
+            // Envelope
+            ctx.fillStyle = '#F5F5DC';
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 2;
+            ctx.fillRect(letterX, letterY, 35, 25);
+            ctx.strokeRect(letterX, letterY, 35, 25);
+            
+            // Flap do envelope
+            ctx.fillStyle = '#E6E6FA';
+            ctx.beginPath();
+            ctx.moveTo(letterX, letterY);
+            ctx.lineTo(letterX + 17.5, letterY + 12);
+            ctx.lineTo(letterX + 35, letterY);
+            ctx.fill();
+            ctx.stroke();
+            
+            // Coração na carta
+            ctx.fillStyle = '#FF1493';
+            ctx.save();
+            ctx.translate(letterX + 17.5, letterY + 15);
+            ctx.scale(0.7, 0.7);
+            
+            // Desenhar coração
+            ctx.beginPath();
+            ctx.moveTo(0, 3);
+            ctx.bezierCurveTo(-8, -5, -20, -2, 0, 15);
+            ctx.bezierCurveTo(20, -2, 8, -5, 0, 3);
+            ctx.fill();
+            
+            ctx.restore();
+        }
+
+        // Função para desenhar carta animada
+        function drawAnimatedLetter() {
+            if (!loveLetter.visible) return;
+            
+            ctx.save();
+            ctx.translate(loveLetter.x + loveLetter.width/2, loveLetter.y + loveLetter.height/2);
+            
+            if (loveLetter.falling) {
+                ctx.rotate(loveLetter.rotation);
+            }
+            
+            if (loveLetter.opened) {
+                // Carta aberta - muito maior
+                const openWidth = 200;
+                const openHeight = 150;
+                
+                // Papel da carta
+                ctx.fillStyle = '#FFFACD';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.fillRect(-openWidth/2, -openHeight/2, openWidth, openHeight);
+                ctx.strokeRect(-openWidth/2, -openHeight/2, openWidth, openHeight);
+                
+                // Bordas decorativas
+                ctx.strokeStyle = '#FF1493';
+                ctx.lineWidth = 3;
+                ctx.strokeRect(-openWidth/2 + 5, -openHeight/2 + 5, openWidth - 10, openHeight - 10);
+                
+            } else if (loveLetter.opening) {
+                // Animação de abertura
+                const progress = loveLetter.openProgress;
+                const width = 35 + (200 - 35) * progress;
+                const height = 25 + (150 - 25) * progress;
+                
+                ctx.fillStyle = '#F5F5DC';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.fillRect(-width/2, -height/2, width, height);
+                ctx.strokeRect(-width/2, -height/2, width, height);
+                
+            } else {
+                // Envelope fechado
+                ctx.fillStyle = '#F5F5DC';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 2;
+                ctx.fillRect(-loveLetter.width/2, -loveLetter.height/2, loveLetter.width, loveLetter.height);
+                ctx.strokeRect(-loveLetter.width/2, -loveLetter.height/2, loveLetter.width, loveLetter.height);
+                
+                // Flap do envelope
+                ctx.fillStyle = '#E6E6FA';
+                ctx.beginPath();
+                ctx.moveTo(-loveLetter.width/2, -loveLetter.height/2);
+                ctx.lineTo(0, 0);
+                ctx.lineTo(loveLetter.width/2, -loveLetter.height/2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Coração pequeno
+                ctx.fillStyle = '#FF1493';
+                ctx.save();
+                ctx.scale(0.5, 0.5);
+                ctx.beginPath();
+                ctx.moveTo(0, 3);
+                ctx.bezierCurveTo(-8, -5, -20, -2, 0, 15);
+                ctx.bezierCurveTo(20, -2, 8, -5, 0, 3);
+                ctx.fill();
+                ctx.restore();
+            }
+            
+            ctx.restore();
+        }
+
+        // Função para desenhar o poema
+        function drawPoem() {
+            if (!finalSequence.showPoem) return;
+            
+            // Fundo semi-transparente
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            // Título do poema
+            ctx.fillStyle = '#FFD700';
+            ctx.font = 'bold 24px Arial';
+            ctx.textAlign = 'center';
+            ctx.fillText('💌 Carta do Coração 💌', canvas.width/2, 60);
+            
+            // Linhas do poema
+            ctx.fillStyle = 'white';
+            ctx.font = '16px Arial';
+            
+            finalSequence.poemLines.forEach((line, index) => {
+                const y = 100 + (index * 25);
+                if (line.includes('Woodstock')) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold 16px Arial';
+                } else if (line.includes('🌟') || line.includes('💛')) {
+                    ctx.fillStyle = '#FFD700';
+                    ctx.font = 'bold 16px Arial';
+                } else if (line === '') {
+                    return; // Pular linhas vazias
+                } else {
+                    ctx.fillStyle = 'white';
+                    ctx.font = '16px Arial';
+                }
+                
+                ctx.fillText(line, canvas.width/2, y);
+            });
+            
+            // Instruções na parte inferior
+            ctx.fillStyle = '#FF69B4';
+            ctx.font = 'bold 14px Arial';
+            ctx.fillText('Pressione ESC para voltar ao menu', canvas.width/2, canvas.height - 30);
+        }
+
+        // Função para desenhar plataformas
+        function drawPlatforms() {
+            platforms.forEach(platform => {
+                // Sombra da plataforma
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.2)';
+                ctx.fillRect(platform.x + 2, platform.y + 2, platform.width, platform.height);
+                
+                // Plataforma principal
+                ctx.fillStyle = platform.color;
+                ctx.fillRect(platform.x, platform.y, platform.width, platform.height);
+                
+                // Textura da grama (apenas no chão principal)
+                if (platform === platforms[0]) {
+                    ctx.fillStyle = '#90EE90';
+                    ctx.fillRect(platform.x, platform.y, platform.width, 10);
+                    
+                    ctx.fillStyle = '#228B22';
+                    for (let i = 0; i < platform.width; i += 20) {
+                        ctx.fillRect(platform.x + i, platform.y, 2, 8);
+                        ctx.fillRect(platform.x + i + 5, platform.y, 1, 6);
+                        ctx.fillRect(platform.x + i + 10, platform.y, 2, 7);
+                    }
+                }
+            });
+        }
+
+        // Função para desenhar rosas
+        function drawRoses() {
+            const time = Date.now() * 0.003;
+            roses.forEach((rose, index) => {
+                if (!rose.collected) {
+                    ctx.save();
+                    // Adicionar leve animação de balanço
+                    const sway = Math.sin(time + index * 0.5) * 0.5;
+                    ctx.translate(rose.x + rose.width/2 + sway, rose.y + rose.height/2);
+                    
+                    // Sombra da rosa (mais suave e realista)
+                    ctx.fillStyle = 'rgba(0, 0, 0, 0.15)';
+                    ctx.beginPath();
+                    ctx.ellipse(2, 8, rose.width/2 + 2, 4, 0, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Caule da rosa (mais grosso e detalhado)
+                    const gradient = ctx.createLinearGradient(-2, 0, 2, rose.height);
+                    gradient.addColorStop(0, '#32CD32');
+                    gradient.addColorStop(0.5, '#228B22');
+                    gradient.addColorStop(1, '#006400');
+                    ctx.fillStyle = gradient;
+                    ctx.fillRect(-2, 0, 4, rose.height);
+                    
+                    // Contorno do caule
+                    ctx.strokeStyle = '#006400';
+                    ctx.lineWidth = 0.5;
+                    ctx.strokeRect(-2, 0, 4, rose.height);
+                    
+                    // Folhas mais realistas
+                    ctx.fillStyle = '#228B22';
+                    ctx.strokeStyle = '#006400';
+                    ctx.lineWidth = 1;
+                    
+                    // Folha esquerda
+                    ctx.beginPath();
+                    ctx.moveTo(-6, 4);
+                    ctx.quadraticCurveTo(-10, 2, -8, 8);
+                    ctx.quadraticCurveTo(-6, 10, -4, 6);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Folha direita
+                    ctx.beginPath();
+                    ctx.moveTo(6, 4);
+                    ctx.quadraticCurveTo(10, 2, 8, 8);
+                    ctx.quadraticCurveTo(6, 10, 4, 6);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.stroke();
+                    
+                    // Nervuras das folhas
+                    ctx.strokeStyle = '#90EE90';
+                    ctx.lineWidth = 0.5;
+                    ctx.beginPath();
+                    ctx.moveTo(-6, 5);
+                    ctx.lineTo(-5, 8);
+                    ctx.moveTo(6, 5);
+                    ctx.lineTo(5, 8);
+                    ctx.stroke();
+                    
+                    // ROSA BRANCA - Camada base (pétalas externas grandes)
+                    ctx.fillStyle = '#FFFFFF';
+                    ctx.strokeStyle = '#D3D3D3';
+                    ctx.lineWidth = 0.8;
+                    
+                    // 8 pétalas externas grandes em formato de coração
+                    for (let i = 0; i < 8; i++) {
+                        const angle = (i * Math.PI * 2) / 8;
+                        ctx.save();
+                        ctx.rotate(angle);
+                        
+                        // Pétala em formato de coração/gota
+                        ctx.beginPath();
+                        ctx.moveTo(0, -2);
+                        ctx.quadraticCurveTo(-4, -8, -2, -12);
+                        ctx.quadraticCurveTo(0, -14, 2, -12);
+                        ctx.quadraticCurveTo(4, -8, 0, -2);
+                        ctx.closePath();
+                        
+                        // Gradiente para dar volume
+                        const petalGradient = ctx.createRadialGradient(0, -8, 0, 0, -8, 6);
+                        petalGradient.addColorStop(0, '#FFFFFF');
+                        petalGradient.addColorStop(0.7, '#F8F8FF');
+                        petalGradient.addColorStop(1, '#E6E6FA');
+                        ctx.fillStyle = petalGradient;
+                        
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                    
+                    // Segunda camada de pétalas (menores, mais internas)
+                    ctx.fillStyle = '#FFFAFA';
+                    ctx.strokeStyle = '#E0E0E0';
+                    ctx.lineWidth = 0.6;
+                    
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i * Math.PI * 2) / 6 + Math.PI/6;
+                        ctx.save();
+                        ctx.rotate(angle);
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(0, -1);
+                        ctx.quadraticCurveTo(-3, -6, -1, -9);
+                        ctx.quadraticCurveTo(0, -10, 1, -9);
+                        ctx.quadraticCurveTo(3, -6, 0, -1);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                    
+                    // Terceira camada (pétalas centrais muito pequenas)
+                    ctx.fillStyle = '#FFF8DC';
+                    ctx.strokeStyle = '#DDD';
+                    ctx.lineWidth = 0.4;
+                    
+                    for (let i = 0; i < 4; i++) {
+                        const angle = (i * Math.PI * 2) / 4;
+                        ctx.save();
+                        ctx.rotate(angle);
+                        
+                        ctx.beginPath();
+                        ctx.moveTo(0, 0);
+                        ctx.quadraticCurveTo(-2, -3, 0, -5);
+                        ctx.quadraticCurveTo(2, -3, 0, 0);
+                        ctx.closePath();
+                        ctx.fill();
+                        ctx.stroke();
+                        ctx.restore();
+                    }
+                    
+                    // Centro da rosa (pistilo)
+                    const centerGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 3);
+                    centerGradient.addColorStop(0, '#FFFACD');
+                    centerGradient.addColorStop(0.5, '#F0E68C');
+                    centerGradient.addColorStop(1, '#DDD');
+                    ctx.fillStyle = centerGradient;
+                    
+                    ctx.beginPath();
+                    ctx.arc(0, 0, 2.5, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    ctx.strokeStyle = '#CCC';
+                    ctx.lineWidth = 0.5;
+                    ctx.stroke();
+                    
+                    // Pequenos pontos no centro (estames)
+                    ctx.fillStyle = '#F5DEB3';
+                    for (let i = 0; i < 6; i++) {
+                        const angle = (i * Math.PI * 2) / 6;
+                        const x = Math.cos(angle) * 1;
+                        const y = Math.sin(angle) * 1;
+                        ctx.beginPath();
+                        ctx.arc(x, y, 0.5, 0, Math.PI * 2);
+                        ctx.fill();
+                    }
+                    
+                    // Brilho sutil na rosa para destacar
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.3)';
+                    ctx.beginPath();
+                    ctx.ellipse(-2, -4, 3, 2, -Math.PI/6, 0, Math.PI * 2);
+                    ctx.fill();
+                    
+                    // Efeito de brilho pulsante ao redor da rosa
+                    const pulseIntensity = (Math.sin(time * 2 + index) + 1) * 0.1;
+                    ctx.strokeStyle = `rgba(255, 255, 255, ${pulseIntensity})`;
+                    ctx.lineWidth = 2;
+                    ctx.beginPath();
+                    ctx.arc(0, -2, 15, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    // Segundo anel de brilho
+                    ctx.strokeStyle = `rgba(255, 192, 203, ${pulseIntensity * 0.5})`;
+                    ctx.lineWidth = 1;
+                    ctx.beginPath();
+                    ctx.arc(0, -2, 18, 0, Math.PI * 2);
+                    ctx.stroke();
+                    
+                    ctx.restore();
+                }
+            });
+        }
+
+        // Função para desenhar inimigos
+        function drawEnemies() {
+            enemies.forEach(enemy => {
+                if (enemy.dead) {
+                    // Animar inimigo morto
+                    drawDeadEnemy(enemy);
+                    return;
+                }
+                
+                ctx.save();
+                ctx.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+                if (enemy.direction === -1) {
+                    ctx.scale(-1, 1);
+                }
+                
+                // Corpo do esquilo
+                ctx.fillStyle = '#8B4513';
+                ctx.strokeStyle = 'black';
+                ctx.lineWidth = 1;
+                ctx.fillRect(-enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+                ctx.strokeRect(-enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+                
+                // Cauda
+                ctx.fillStyle = '#A0522D';
+                ctx.beginPath();
+                ctx.arc(enemy.width/2 + 5, -5, 12, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.stroke();
+                
+                // Olho
+                ctx.fillStyle = 'black';
+                ctx.beginPath();
+                ctx.arc(-3, -8, 2, 0, Math.PI * 2);
+                ctx.fill();
+                
+                ctx.restore();
+            });
+        }
+
+        // Função para desenhar inimigo morto
+        function drawDeadEnemy(enemy) {
+            ctx.save();
+            ctx.translate(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+            
+            // Rotacionar para mostrar que está morto
+            ctx.rotate(Math.PI); // 180 graus
+            
+            // Corpo do esquilo (de cabeça para baixo)
+            ctx.fillStyle = '#654321'; // Cor mais escura
+            ctx.strokeStyle = 'black';
+            ctx.lineWidth = 1;
+            ctx.fillRect(-enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+            ctx.strokeRect(-enemy.width/2, -enemy.height/2, enemy.width, enemy.height);
+            
+            // Cauda
+            ctx.fillStyle = '#8B4513';
+            ctx.beginPath();
+            ctx.arc(enemy.width/2 + 5, -5, 12, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+            
+            // X nos olhos (morto)
+            ctx.strokeStyle = 'red';
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(-6, -10);
+            ctx.lineTo(0, -6);
+            ctx.moveTo(0, -10);
+            ctx.lineTo(-6, -6);
+            ctx.stroke();
+            
+            ctx.restore();
+            
+            // Animação de desaparecimento
+            enemy.deathTimer--;
+            if (enemy.deathTimer <= 0) {
+                enemy.remove = true;
+            }
+        }
+
+        // Função para criar efeito de estrelas ao derrotar inimigo
+        function createStars(x, y) {
+            for (let i = 0; i < 5; i++) {
+                setTimeout(() => {
+                    drawStar(x + (Math.random() - 0.5) * 40, y + (Math.random() - 0.5) * 40);
+                }, i * 100);
+            }
+        }
+
+        // Função para desenhar estrela temporária
+        function drawStar(x, y) {
+            const startTime = Date.now();
+            const duration = 800;
+            
+            function animateStar() {
+                const elapsed = Date.now() - startTime;
+                const progress = elapsed / duration;
+                
+                if (progress < 1) {
+                    ctx.save();
+                    ctx.translate(x, y - progress * 30); // Estrela sobe
+                    ctx.scale(1 - progress, 1 - progress); // Estrela diminui
+                    ctx.fillStyle = `rgba(255, 215, 0, ${1 - progress})`; // Estrela desaparece
+                    
+                    // Desenhar estrela de 5 pontas
+                    ctx.beginPath();
+                    for (let i = 0; i < 5; i++) {
+                        const angle = (i * 4 * Math.PI) / 5;
+                        const xPos = Math.cos(angle) * 8;
+                        const yPos = Math.sin(angle) * 8;
+                        if (i === 0) ctx.moveTo(xPos, yPos);
+                        else ctx.lineTo(xPos, yPos);
+                    }
+                    ctx.closePath();
+                    ctx.fill();
+                    
+                    ctx.restore();
+                    
+                    requestAnimationFrame(animateStar);
+                }
+            }
+            
+            requestAnimationFrame(animateStar);
+        }
+
+        // Função de atualização dos inimigos
+        function updateEnemies() {
+            if (game.phaseComplete) return;
+            
+            // Remover inimigos marcados para remoção
+            for (let i = enemies.length - 1; i >= 0; i--) {
+                if (enemies[i].remove) {
+                    enemies.splice(i, 1);
+                }
+            }
+            
+            enemies.forEach(enemy => {
+                if (enemy.dead) return; // Não mover inimigos mortos
+                
+                enemy.x += enemy.velocityX * enemy.direction;
+                
+                let onPlatform = false;
+                platforms.forEach(platform => {
+                    if (enemy.x + enemy.width > platform.x &&
+                        enemy.x < platform.x + platform.width &&
+                        enemy.y + enemy.height >= platform.y &&
+                        enemy.y + enemy.height <= platform.y + platform.height + 10) {
+                        onPlatform = true;
+                        
+                        if (enemy.x <= platform.x || enemy.x + enemy.width >= platform.x + platform.width) {
+                            enemy.direction *= -1;
+                        }
+                    }
+                });
+            });
+        }
+
+        // Função de colisão com inimigos (NOVA VERSÃO)
+        function checkEnemyCollisions() {
+            if (game.phaseComplete) return;
+            
+            enemies.forEach((enemy, index) => {
+                if (enemy.dead) return; // Ignorar inimigos já mortos
+                
+                if (player.x < enemy.x + enemy.width &&
+                    player.x + player.width > enemy.x &&
+                    player.y < enemy.y + enemy.height &&
+                    player.y + player.height > enemy.y) {
+                    
+                    // Verificar se o Snoopy está caindo e acerta o inimigo por cima
+                    const snoopyBottom = player.y + player.height;
+                    const enemyTop = enemy.y;
+                    const snoopyCenter = player.x + player.width / 2;
+                    const enemyCenter = enemy.x + enemy.width / 2;
+                    
+                    // Se o Snoopy está caindo (velocidade positiva) e acerta por cima
+                    if (player.velocityY > 0 && snoopyBottom - 10 <= enemyTop && 
+                        Math.abs(snoopyCenter - enemyCenter) < enemy.width / 2 + player.width / 2) {
+                        
+                        // SNOOPY DERROTA O INIMIGO! 🎉
+                        enemy.dead = true;
+                        enemy.deathTimer = 60; // 1 segundo de animação
+                        
+                        // Impulso para cima (como no Mario)
+                        player.velocityY = -12;
+                        
+                        // Pontos extras por derrotar inimigo
+                        game.score += 10;
+                        game.enemiesDefeated++;
+                        document.getElementById('scoreValue').textContent = game.score;
+                        
+                        // Efeito visual de estrelas
+                        createStars(enemy.x + enemy.width/2, enemy.y + enemy.height/2);
+                        
+                        // Som de vitória (simulado com console)
+                        console.log('🎵 DEFEATED ENEMY! +10 points! 🎵');
+                        
+                    } else {
+                        // Colisão lateral - Snoopy perde (como antes)
+                        player.x = 100;
+                        player.y = 400;
+                        player.velocityX = 0;
+                        player.velocityY = 0;
+                        
+                        // Perder alguns pontos ao morrer
+                        if (game.score > 0) {
+                            game.score = Math.max(0, game.score - 5);
+                            document.getElementById('scoreValue').textContent = game.score;
+                        }
+                        
+                        console.log('💀 Snoopy foi pego! -5 pontos');
+                    }
+                }
+            });
+        }
+
+        // Função para atualizar a função de informações do jogo para mostrar inimigos derrotados
+        function updateGameInfo() {
+            document.getElementById('scoreValue').textContent = game.score;
+            
+            // Adicionar contador de inimigos derrotados no final da fase
+            if (game.phaseComplete && game.enemiesDefeated > 0) {
+                const gameInfo = document.querySelector('.game-info');
+                if (!document.getElementById('enemiesDefeated')) {
+                    const defeatedDiv = document.createElement('div');
+                    defeatedDiv.id = 'enemiesDefeated';
+                    defeatedDiv.innerHTML = `💥 Inimigos: ${game.enemiesDefeated}`;
+                    gameInfo.appendChild(defeatedDiv);
+                }
+            }
+        }
+
+        // Função para desenhar o cenário de fundo
+        function drawBackground() {
+            // Árvores (não mostrar na fase final)
+            if (game.currentPhase < game.maxPhases) {
+                const trees = [
+                    { x: 50, y: 450 },
+                    { x: 700, y: 420 }
+                ];
+                
+                trees.forEach(tree => {
+                    // Tronco
+                    ctx.fillStyle = '#8B4513';
+                    ctx.fillRect(tree.x, tree.y, 20, 100);
+                    
+                    // Copa
+                    ctx.fillStyle = '#228B22';
+                    ctx.beginPath();
+                    ctx.arc(tree.x + 10, tree.y, 30, 0, Math.PI * 2);
+                    ctx.fill();
+                });
+            }
+            
+            // Sol
+            ctx.fillStyle = '#FFD700';
+            ctx.beginPath();
+            ctx.arc(700, 80, 40, 0, Math.PI * 2);
+            ctx.fill();
+            
+            // Raios do sol
+            ctx.strokeStyle = '#FFD700';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                const angle = (i * Math.PI * 2) / 8;
+                ctx.beginPath();
+                ctx.moveTo(700 + Math.cos(angle) * 50, 80 + Math.sin(angle) * 50);
+                ctx.lineTo(700 + Math.cos(angle) * 70, 80 + Math.sin(angle) * 70);
+                ctx.stroke();
+            }
+            
+            // Corações flutuantes na fase final
+            if (game.currentPhase === game.maxPhases && woodstock.visible) {
+                drawFloatingHearts();
+            }
+        }
+
+        // Função para desenhar corações flutuantes
+        function drawFloatingHearts() {
+            const time = Date.now() * 0.002;
+            
+            for (let i = 0; i < 5; i++) {
+                const x = 100 + i * 150 + Math.sin(time + i) * 20;
+                const y = 50 + Math.sin(time * 1.5 + i * 0.5) * 30;
+                
+                ctx.save();
+                ctx.translate(x, y);
+                ctx.scale(0.5, 0.5);
+                ctx.fillStyle = 'rgba(255, 20, 147, 0.7)';
+                
+                ctx.beginPath();
+                ctx.moveTo(0, 3);
+                ctx.bezierCurveTo(-8, -5, -20, -2, 0, 15);
+                ctx.bezierCurveTo(20, -2, 8, -5, 0, 3);
+                ctx.fill();
+                
+                ctx.restore();
+            }
+        }
+
+        // Função de atualização do jogador
+        function updatePlayer() {
+            if (game.phaseComplete) return;
+            
+            // Controles horizontais
+            if (game.keys['ArrowLeft']) {
+                player.velocityX = -player.speed;
+                player.direction = -1;
+            } else if (game.keys['ArrowRight']) {
+                player.velocityX = player.speed;
+                player.direction = 1;
+            } else {
+                player.velocityX *= game.friction;
+            }
+            
+            // Pulo
+            if (game.keys['Space'] && player.onGround) {
+                player.velocityY = -player.jumpPower;
+                player.onGround = false;
+            }
+            
+            // Gravidade
+            player.velocityY += game.gravity;
+            
+            // Movimento
+            player.x += player.velocityX;
+            player.y += player.velocityY;
+            
+            // Limite da tela horizontal
+            if (player.x < 0) player.x = 0;
+            if (player.x > canvas.width - player.width) player.x = canvas.width - player.width;
+        }
+
+        // Função de colisão com plataformas
+        function checkPlatformCollisions() {
+            player.onGround = false;
+            
+            platforms.forEach(platform => {
+                if (player.x < platform.x + platform.width &&
+                    player.x + player.width > platform.x &&
+                    player.y < platform.y + platform.height &&
+                    player.y + player.height > platform.y) {
+                    
+                    if (player.velocityY > 0 && player.y < platform.y) {
+                        player.y = platform.y - player.height;
+                        player.velocityY = 0;
+                        player.onGround = true;
+                    }
+                }
+            });
+        }
+
+        // Função de colisão com rosas
+        function checkRoseCollisions() {
+            roses.forEach(rose => {
+                if (!rose.collected &&
+                    player.x < rose.x + rose.width &&
+                    player.x + player.width > rose.x &&
+                    player.y < rose.y + rose.height &&
+                    player.y + player.height > rose.y) {
+                    
+                    rose.collected = true;
+                    game.score++;
+                    document.getElementById('scoreValue').textContent = game.score;
+                    
+                    // Verificar se todas as rosas foram coletadas
+                    const allRosesCollected = roses.every(r => r.collected);
+                    if (allRosesCollected) {
+                        completePhase();
+                    }
+                }
+            });
+        }
+
+        // Função para completar fase
+        function completePhase() {
+            game.phaseComplete = true;
+            
+            if (game.currentPhase === game.maxPhases) {
+                // Jogo completo!
+                showTransition("💕 Parabéns! 💕", "Snoopy encontrou o Woodstock!<br>O amor verdadeiro triunfou!<br><br>🐕💛🐥<br><br><strong>Pressione ENTER para ver a carta especial!</strong>", true);
+            } else {
+                // Próxima fase
+                showTransition(`🎉 Fase ${game.currentPhase} Completa! 🎉`, `Parabéns! Você coletou todas as rosas desta fase!<br><br>Prepare-se para o próximo desafio...<br><br>A aventura continua!`);
+            }
+        }
+
+        // Função para mostrar transição
+        function showTransition(title, text, isGameComplete = false) {
+            document.getElementById('transitionTitle').innerHTML = title;
+            document.getElementById('transitionText').innerHTML = text;
+            
+            const continueBtn = document.getElementById('continueBtn');
+            if (isGameComplete) {
+                continueBtn.textContent = '🔄 Jogar Novamente';
+                continueBtn.onclick = () => restartGame();
+            } else {
+                continueBtn.textContent = '▶️ Próxima Fase';
+                continueBtn.onclick = () => continueGame();
+            }
+            
+            document.getElementById('phaseTransition').classList.add('active');
+        }
+
+        // Função para continuar jogo
+        function continueGame() {
+            game.currentPhase++;
+            initPhase(game.currentPhase);
+            document.getElementById('phaseTransition').classList.remove('active');
+        }
+
+        // Função para reiniciar jogo
+        function restartGame() {
+            game.currentPhase = 1;
+            game.score = 0;
+            game.enemiesDefeated = 0;
+            document.getElementById('scoreValue').textContent = '0';
+            initPhase(game.currentPhase);
+            document.getElementById('phaseTransition').classList.remove('active');
+        }
+
+        // Atualizar animação do Woodstock
+        function updateWoodstock() {
+            if (woodstock.visible) {
+                woodstock.bounce += 0.1;
+            }
+        }
+
+        // Função para iniciar sequência final
+        function startFinalSequence() {
+            finalSequence.active = true;
+            document.getElementById('phaseTransition').classList.remove('active');
+            
+            // Configurar Woodstock para voar
+            woodstock.flying = true;
+            woodstock.x = canvas.width + 50; // Começar fora da tela à direita
+            woodstock.y = 150;
+            woodstock.flyDirection = -1;
+        }
+
+        // Função para atualizar sequência final
+        function updateFinalSequence() {
+            if (!finalSequence.active) return;
+
+            // Animar Woodstock voando
+            if (woodstock.flying) {
+                woodstock.x += woodstock.flySpeed * woodstock.flyDirection;
+                woodstock.bounce += 0.2; // Animação de voo mais rápida
+                
+                // Soltar a carta no meio da tela
+                if (woodstock.x <= canvas.width / 2 && !loveLetter.visible) {
+                    loveLetter.visible = true;
+                    loveLetter.falling = true;
+                    loveLetter.x = woodstock.x;
+                    loveLetter.y = woodstock.y + 20;
+                }
+                
+                // Woodstock sai da tela
+                if (woodstock.x < -50) {
+                    woodstock.flying = false;
+                }
+            }
+
+            // Animar carta caindo
+            if (loveLetter.falling) {
+                loveLetter.y += loveLetter.fallSpeed;
+                loveLetter.rotation += 0.1; // Rotação durante a queda
+                
+                // Carta toca o chão
+                if (loveLetter.y >= canvas.height - 150) {
+                    loveLetter.falling = false;
+                    loveLetter.opening = true;
+                    loveLetter.y = canvas.height - 150;
+                    loveLetter.rotation = 0;
+                }
+            }
+
+            // Animar carta se abrindo
+            if (loveLetter.opening) {
+                loveLetter.openProgress += 0.02;
+                
+                if (loveLetter.openProgress >= 1) {
+                    loveLetter.opening = false;
+                    loveLetter.opened = true;
+                    finalSequence.showPoem = true;
+                }
+            }
+        }
+
+        // Loop principal do jogo
+        function gameLoop() {
+            // Limpar canvas
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Desenhar cenário
+            drawBackground();
+            drawPlatforms();
+            drawRoses();
+            drawEnemies();
+            drawPlayer();
+            drawWoodstock();
+            
+            // Desenhar carta animada se estiver na sequência final
+            if (finalSequence.active) {
+                drawAnimatedLetter();
+            }
+            
+            // Desenhar poema se estiver ativo
+            drawPoem();
+            
+            // Atualizar lógica
+            updatePlayer();
+            updateEnemies();
+            updateWoodstock();
+            updateFinalSequence();
+            checkPlatformCollisions();
+            checkRoseCollisions();
+            checkEnemyCollisions();
+            
+            updateGameInfo();
+            
+            requestAnimationFrame(gameLoop);
+        }
+
+        // Iniciar o jogo
+        initPhase(1);
+        gameLoop();
+        
+        // Prevenir comportamento padrão da barra de espaço
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>
