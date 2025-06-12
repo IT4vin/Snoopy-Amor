@@ -2,10 +2,10 @@
   "name": "snoopy-amor-game",
   "version": "1.0.0",
   "description": "Jogo romântico do Snoopy para Mayara",
-  "main": "index.html",
+  "main": "jogo_romantico.html",
   "scripts": {
     "dev": "npx serve .",
-    "build": "echo 'No build step needed for static site'",
+    "build": "cp jogo_romantico.html index.html",
     "start": "npx serve ."
   },
   "keywords": ["game", "html5", "canvas", "snoopy", "romance"],

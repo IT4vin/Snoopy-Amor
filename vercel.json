@@ -2,13 +2,17 @@
   "version": 2,
   "builds": [
     {
-      "src": "*.html",
+      "src": "**/*",
       "use": "@vercel/static"
     }
   ],
   "routes": [
     {
-      "src": "/(.*)",
+      "src": "/",
+      "dest": "/jogo_romantico.html"
+    },
+    {
+      "src": "/(.+)",
       "dest": "/$1"
     }
   ]
