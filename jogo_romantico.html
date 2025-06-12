@@ -253,13 +253,17 @@
             rotation: 0,
             opening: false,
             opened: false,
-            openProgress: 0
+            openProgress: 0,
+            canBeCollected: false,
+            collected: false
         };
 
         // Estado da sequência final
         const finalSequence = {
             active: false,
             showPoem: false,
+            startDate: new Date('2020-11-29T00:00:00'),
+            timeElapsed: null,
             poemLines: [
                 "🌟 Para Mayara Mendes 🌟",
                 "",
@@ -373,6 +377,21 @@
             
             // Mostrar Woodstock apenas na fase final
             woodstock.visible = (phaseNumber === game.maxPhases);
+            woodstock.x = 700;
+            woodstock.y = 100;
+            woodstock.flying = false;
+            woodstock.bounce = 0;
+            woodstock.flyDirection = -1;
+            
+            // Resetar estado da carta
+            loveLetter.visible = false;
+            loveLetter.falling = false;
+            loveLetter.rotation = 0;
+            loveLetter.opening = false;
+            loveLetter.opened = false;
+            loveLetter.openProgress = 0;
+            loveLetter.canBeCollected = false;
+            loveLetter.collected = false;
             
             document.getElementById('phaseValue').textContent = phaseNumber;
             
@@ -394,8 +413,8 @@
             
             // Detectar ESC para sair do poema
             if (e.code === 'Escape' && finalSequence.showPoem) {
-                finalSequence.active = false;
                 finalSequence.showPoem = false;
+                finalSequence.active = false;
                 loveLetter.visible = false;
                 loveLetter.opened = false;
                 loveLetter.opening = false;
@@ -583,6 +602,14 @@
         function drawAnimatedLetter() {
             if (!loveLetter.visible) return;
             
+            // Desenhar mensagem de instrução quando a carta pode ser coletada
+            if (loveLetter.canBeCollected && !loveLetter.collected) {
+                ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+                ctx.font = 'bold 16px Arial';
+                ctx.textAlign = 'center';
+                ctx.fillText('💌 Pegue a carta! Use as setas e espaço para se mover até ela! 💌', canvas.width/2, 100);
+            }
+            
             ctx.save();
             ctx.translate(loveLetter.x + loveLetter.width/2, loveLetter.y + loveLetter.height/2);
             
@@ -613,7 +640,7 @@
                 const width = 35 + (200 - 35) * progress;
                 const height = 25 + (150 - 25) * progress;
                 
-                ctx.fillStyle = '#F5F5DC';
+                ctx.fillStyle = '#FFFACD';
                 ctx.strokeStyle = 'black';
                 ctx.lineWidth = 2;
                 ctx.fillRect(-width/2, -height/2, width, height);
@@ -651,6 +678,22 @@
             ctx.restore();
         }
 
+        // Função para calcular o tempo decorrido desde uma data
+        function getTimeElapsed(startDate) {
+            const now = new Date();
+            const start = new Date(startDate);
+            const diff = now - start;
+            
+            const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
+            const months = Math.floor((diff % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30.44));
+            const days = Math.floor((diff % (1000 * 60 * 60 * 24 * 30.44)) / (1000 * 60 * 60 * 24));
+            const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+            
+            return `${years} anos, ${months} meses, ${days} dias, ${hours}h ${minutes}m ${seconds}s`;
+        }
+
         // Função para desenhar o poema
         function drawPoem() {
             if (!finalSequence.showPoem) return;
@@ -661,27 +704,43 @@
             
             // Título do poema
             ctx.fillStyle = '#FFD700';
-            ctx.font = 'bold 24px Arial';
+            ctx.font = 'bold 28px Arial';
             ctx.textAlign = 'center';
             ctx.fillText('💌 Carta do Coração 💌', canvas.width/2, 60);
             
+            // Temporizador
+            if (finalSequence.timeElapsed) {
+                // Título do temporizador
+                ctx.fillStyle = '#FF69B4';
+                ctx.font = 'bold 20px Arial';
+                ctx.fillText('💕 Tempo juntos 💕', canvas.width/2, 100);
+                
+                // Dividir o tempo em duas linhas para melhor visualização
+                const timeLines = finalSequence.timeElapsed.split('\n');
+                ctx.font = 'bold 18px Arial';
+                timeLines.forEach((line, index) => {
+                    ctx.fillText(line, canvas.width/2, 125 + (index * 25));
+                });
+            }
+            
             // Linhas do poema
-            ctx.fillStyle = 'white';
-            ctx.font = '16px Arial';
+            ctx.font = '18px Arial';
+            
+            // Ajustar posição inicial do poema após o temporizador
+            const poemStartY = 175; // Aumentado para dar mais espaço ao temporizador
             
             finalSequence.poemLines.forEach((line, index) => {
-                const y = 100 + (index * 25);
-                if (line.includes('Woodstock')) {
-                    ctx.fillStyle = '#FFD700';
-                    ctx.font = 'bold 16px Arial';
-                } else if (line.includes('🌟') || line.includes('💛')) {
-                    ctx.fillStyle = '#FFD700';
-                    ctx.font = 'bold 16px Arial';
+                const y = poemStartY + (index * 28);
+                
+                // Definir estilo baseado no conteúdo da linha
+                if (line.includes('🌟') || line.includes('💛')) {
+                    ctx.fillStyle = '#FFD700'; // Dourado para título e assinatura
+                    ctx.font = 'bold 20px Arial';
                 } else if (line === '') {
                     return; // Pular linhas vazias
                 } else {
-                    ctx.fillStyle = 'white';
-                    ctx.font = '16px Arial';
+                    ctx.fillStyle = '#FFFFFF'; // Branco para o texto do poema
+                    ctx.font = '18px Arial';
                 }
                 
                 ctx.fillText(line, canvas.width/2, y);
@@ -689,8 +748,8 @@
             
             // Instruções na parte inferior
             ctx.fillStyle = '#FF69B4';
-            ctx.font = 'bold 14px Arial';
-            ctx.fillText('Pressione ESC para voltar ao menu', canvas.width/2, canvas.height - 30);
+            ctx.font = 'bold 16px Arial';
+            ctx.fillText('Pressione ESC para continuar', canvas.width/2, canvas.height - 30);
         }
 
         // Função para desenhar plataformas
@@ -1285,17 +1344,35 @@
             
             if (game.currentPhase === game.maxPhases) {
                 // Jogo completo!
-                showTransition("💕 Parabéns! 💕", "Snoopy encontrou o Woodstock!<br>O amor verdadeiro triunfou!<br><br>🐕💛🐥<br><br><strong>Pressione ENTER para ver a carta especial!</strong>", true);
+                showTransition("💕 Parabéns! 💕", "Snoopy encontrou o Woodstock!<br>O amor verdadeiro triunfou!<br><br>🐕💛🐥<br><br>Woodstock tem uma surpresa especial para você!", true);
+                // Iniciar sequência final automaticamente após um pequeno delay
+                setTimeout(() => {
+                    document.getElementById('phaseTransition').classList.remove('active');
+                    startFinalSequence();
+                }, 2000);
             } else {
                 // Próxima fase
-                showTransition(`🎉 Fase ${game.currentPhase} Completa! 🎉`, `Parabéns! Você coletou todas as rosas desta fase!<br><br>Prepare-se para o próximo desafio...<br><br>A aventura continua!`);
+                showTransition(
+                    `🌹 Fase ${game.currentPhase} Completa! 🌹`, 
+                    `Parabéns! Você coletou todas as rosas!<br><br>
+                    Prepare-se para o próximo desafio...<br><br>
+                    A aventura continua!<br><br>
+                    Reclama não! Vai pra proxima fase amor.<br><br>
+                    Sua cartinha ta chegando!`
+                );
             }
         }
 
         // Função para mostrar transição
         function showTransition(title, text, isGameComplete = false) {
-            document.getElementById('transitionTitle').innerHTML = title;
-            document.getElementById('transitionText').innerHTML = text;
+            // Limpar qualquer conteúdo anterior
+            const transitionElement = document.getElementById('phaseTransition');
+            const titleElement = document.getElementById('transitionTitle');
+            const textElement = document.getElementById('transitionText');
+            
+            // Atualizar o conteúdo
+            titleElement.innerHTML = title;
+            textElement.innerHTML = text.trim(); // Remove espaços extras
             
             const continueBtn = document.getElementById('continueBtn');
             if (isGameComplete) {
@@ -1306,7 +1383,13 @@
                 continueBtn.onclick = () => continueGame();
             }
             
-            document.getElementById('phaseTransition').classList.add('active');
+            // Forçar reflow para garantir que a animação seja executada
+            transitionElement.style.display = 'none';
+            transitionElement.offsetHeight; // Força reflow
+            transitionElement.style.display = 'flex';
+            
+            // Adicionar a classe active
+            transitionElement.classList.add('active');
         }
 
         // Função para continuar jogo
@@ -1336,6 +1419,7 @@
         // Função para iniciar sequência final
         function startFinalSequence() {
             finalSequence.active = true;
+            finalSequence.showPoem = true; // Garantir que o poema seja mostrado
             document.getElementById('phaseTransition').classList.remove('active');
             
             // Configurar Woodstock para voar
@@ -1343,16 +1427,34 @@
             woodstock.x = canvas.width + 50; // Começar fora da tela à direita
             woodstock.y = 150;
             woodstock.flyDirection = -1;
+            
+            // Inicializar o temporizador
+            finalSequence.timeElapsed = ''; // Garantir que o temporizador comece vazio
         }
 
         // Função para atualizar sequência final
         function updateFinalSequence() {
             if (!finalSequence.active) return;
 
+            // Atualizar o temporizador sempre que a sequência final estiver ativa
+            if (finalSequence.showPoem) {
+                const now = new Date();
+                const diff = now - finalSequence.startDate;
+                
+                const years = Math.floor(diff / (1000 * 60 * 60 * 24 * 365));
+                const months = Math.floor((diff % (1000 * 60 * 60 * 24 * 365)) / (1000 * 60 * 60 * 24 * 30.44));
+                const days = Math.floor((diff % (1000 * 60 * 60 * 24 * 30.44)) / (1000 * 60 * 60 * 24));
+                const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+                const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+                const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+                
+                finalSequence.timeElapsed = `${years} anos, ${months} meses, ${days} dias\n${hours}h ${minutes}m ${seconds}s`;
+            }
+
             // Animar Woodstock voando
             if (woodstock.flying) {
                 woodstock.x += woodstock.flySpeed * woodstock.flyDirection;
-                woodstock.bounce += 0.2; // Animação de voo mais rápida
+                woodstock.bounce += 0.2;
                 
                 // Soltar a carta no meio da tela
                 if (woodstock.x <= canvas.width / 2 && !loveLetter.visible) {
@@ -1371,14 +1473,31 @@
             // Animar carta caindo
             if (loveLetter.falling) {
                 loveLetter.y += loveLetter.fallSpeed;
-                loveLetter.rotation += 0.1; // Rotação durante a queda
+                loveLetter.rotation += 0.1;
                 
                 // Carta toca o chão
                 if (loveLetter.y >= canvas.height - 150) {
                     loveLetter.falling = false;
-                    loveLetter.opening = true;
+                    loveLetter.canBeCollected = true;
                     loveLetter.y = canvas.height - 150;
                     loveLetter.rotation = 0;
+                }
+            }
+
+            // Verificar se o Snoopy pegou a carta
+            if (loveLetter.canBeCollected && !loveLetter.collected) {
+                if (player.x < loveLetter.x + loveLetter.width &&
+                    player.x + player.width > loveLetter.x &&
+                    player.y < loveLetter.y + loveLetter.height &&
+                    player.y + player.height > loveLetter.y) {
+                    
+                    loveLetter.collected = true;
+                    loveLetter.opening = true;
+                    loveLetter.x = canvas.width / 2 - loveLetter.width / 2;
+                    loveLetter.y = canvas.height / 2 - loveLetter.height / 2;
+                    
+                    // Criar efeito de estrelas ao pegar a carta
+                    createStars(loveLetter.x + loveLetter.width/2, loveLetter.y + loveLetter.height/2);
                 }
             }
 
@@ -1412,8 +1531,10 @@
                 drawAnimatedLetter();
             }
             
-            // Desenhar poema se estiver ativo
-            drawPoem();
+            // Desenhar poema se estiver ativo (por último para ficar por cima de tudo)
+            if (finalSequence.showPoem) {
+                drawPoem();
+            }
             
             // Atualizar lógica
             updatePlayer();

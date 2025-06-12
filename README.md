@@ -1,6 +1,6 @@
 # 🐕 Aventuras Românticas do Snoopy 💛
 
-Um jogo romântico criado especialmente para Mayara Mendes.
+Um jogo romântico criado especialmente para  Mendes.
 
 ## 🎮 Como Jogar
 
@@ -53,7 +53,7 @@ Para fazer deploy no Vercel:
 
 ## 💕 Sobre o Jogo
 
-Este jogo foi criado com amor para Mayara Mendes, combinando a nostalgia do Snoopy com uma aventura romântica especial.
+Este jogo foi criado com amor para  Mendes, combinando a nostalgia do Snoopy com uma aventura romântica especial.
 
 **Características:**
 - 3 fases progressivas
